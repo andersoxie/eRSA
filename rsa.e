@@ -34,12 +34,6 @@ feature
 		Result := c_rsa_generate_key_ex (this_rsa_ptr, bits, a_bignum_ptr, a_bn_gencb_ptr)
 	end
 
---	write_RSAPublicKey : INTEGER
---	do
---		Result := c_PEM_write_bio_RSAPublicKey ( this_bio_ptr, this_rsa_ptr )
---	end
-
-
 	RSAPublicKey : STRING
 	local
 		a_ptr_to_ptr, a_buf_mem_ptr: POINTER
@@ -97,13 +91,23 @@ feature
 		temp: ANY
 		a_ptr_to_string_to_decrrypt: POINTER
 		a_decrypted_c_string : POINTER
+
+		result_ptr : POINTER
+		a_ptr_to_decrypted_data : POINTER
+		a_ptr_to_ptr : POINTER
+
+		length : INTEGER
 	do
+		-- To handle the resulting STRING
+		a_ptr_to_decrypted_data := $result_ptr
+		a_ptr_to_ptr := $a_ptr_to_decrypted_data
+
+
 			temp := string_to_decrypt.to_c
 			a_ptr_to_string_to_decrrypt := $temp
-			a_decrypted_c_string := 	c_RSA_private_decrypt (string_to_decrypt.count, a_ptr_to_string_to_decrrypt, this_rsa_ptr  )
+			length := c_RSA_private_decrypt (string_to_decrypt.count, a_ptr_to_string_to_decrrypt, a_ptr_to_ptr, this_rsa_ptr  )
 			create Result.make_empty
---FIXME Must do the same as with encrypt since it might be data that contains null characters which will then affect this routine.			
-			RESULT.from_c (a_decrypted_c_string)
+			Result.from_c_substring (a_ptr_to_decrypted_data, 1, length)
 	end
 
 
@@ -149,8 +153,8 @@ feature {NONE}
 			char **pptr;
 
 
-			printf ($a_char_ptr_to_data);
-			printf("\n");
+//			printf ($a_char_ptr_to_data);
+//			printf("\n");
 
 			to = malloc (RSA_size($a_rsa_ptr)+1);
 			result = RSA_public_encrypt($length_of_data_to_encrypt, $a_char_ptr_to_data, to , $a_rsa_ptr, RSA_PKCS1_OAEP_PADDING );
@@ -172,9 +176,9 @@ feature {NONE}
 //			printf("<-END");
 //			printf("\n");
 						
-			decrypted = malloc (RSA_size($a_rsa_ptr)+1);
-			result_decryption = RSA_private_decrypt(result, to, decrypted, $a_rsa_ptr, RSA_PKCS1_OAEP_PADDING );
-			decrypted[result] = 0;
+//			decrypted = malloc (RSA_size($a_rsa_ptr)+1);
+//			result_decryption = RSA_private_decrypt(result, to, decrypted, $a_rsa_ptr, RSA_PKCS1_OAEP_PADDING );
+//			decrypted[result] = 0;
 //			printf("%i", result_decryption);
 //			printf("\n");
 //			printf (decrypted);
@@ -185,7 +189,7 @@ feature {NONE}
 			}"
 		end
 
-	c_RSA_private_decrypt (length_of_data_to_decrypt: INTEGER; a_char_ptr_to_data :POINTER; a_rsa_ptr : POINTER ): POINTER
+	c_RSA_private_decrypt (length_of_data_to_decrypt: INTEGER; a_char_ptr_to_data :POINTER;a_ptr_to_decrypted_data: POINTER; a_rsa_ptr : POINTER ): INTEGER
 			-- External call
 		external
 			"C inline use <openssl/rsa.h>"
@@ -193,6 +197,8 @@ feature {NONE}
 			"{
 			unsigned char * to;
 			int result;
+			unsigned char * decrypted;
+			char **pptr;
 
 //			printf("%i", $length_of_data_to_decrypt);
 //			printf("\n");
@@ -202,12 +208,17 @@ feature {NONE}
 
 			to = malloc (RSA_size($a_rsa_ptr)+1);
 			result = RSA_private_decrypt($length_of_data_to_decrypt, $a_char_ptr_to_data, to, $a_rsa_ptr, RSA_PKCS1_OAEP_PADDING );
-			to[result] = 0;
+
+			pptr=(char **)$a_ptr_to_decrypted_data;
+			*pptr=(char *)to;
+
+
+//			to[result] = 0;
 //			printf("%i", result);
 //			printf("\n");
 //			printf (to);
 //			printf("\n");
-			return (EIF_POINTER) to;
+			return (EIF_INTEGER) result;
 			}"
 		end
 
