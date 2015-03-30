@@ -84,13 +84,29 @@ feature
 		Result := s
 	end
 
+	private_encrypt (string_to_encrypt : STRING): STRING
+	local
+		a_ptr_to_encrypted_data : POINTER
+		a_ptr_to_ptr : POINTER
+		length : INTEGER
+		s : STRING
+		result_ptr : POINTER
+		a_ptr_to_string_to_encrypt: POINTER
+		temp: ANY
+	do
+		a_ptr_to_encrypted_data := $result_ptr
+		a_ptr_to_ptr := $a_ptr_to_encrypted_data
+		temp := string_to_encrypt.to_c
+		a_ptr_to_string_to_encrypt := $temp
+		length := c_rsa_private_encrypt (string_to_encrypt.count, a_ptr_to_string_to_encrypt, a_ptr_to_ptr, this_rsa_ptr)
+		create s.make_empty
+		s.from_c_substring (a_ptr_to_encrypted_data, 1, length)
+		Result := s
+	end
 	private_decrypt ( string_to_decrypt : STRING ): STRING
 	local
-		length_of_data_to_decrypt: INTEGER
-		a_char_ptr_to_data :POINTER
 		temp: ANY
 		a_ptr_to_string_to_decrrypt: POINTER
-		a_decrypted_c_string : POINTER
 
 		result_ptr : POINTER
 		a_ptr_to_decrypted_data : POINTER
@@ -106,6 +122,29 @@ feature
 			temp := string_to_decrypt.to_c
 			a_ptr_to_string_to_decrrypt := $temp
 			length := c_RSA_private_decrypt (string_to_decrypt.count, a_ptr_to_string_to_decrrypt, a_ptr_to_ptr, this_rsa_ptr  )
+			create Result.make_empty
+			Result.from_c_substring (a_ptr_to_decrypted_data, 1, length)
+	end
+
+	public_decrypt ( string_to_decrypt : STRING ): STRING
+	local
+		temp: ANY
+		a_ptr_to_string_to_decrrypt: POINTER
+
+		result_ptr : POINTER
+		a_ptr_to_decrypted_data : POINTER
+		a_ptr_to_ptr : POINTER
+
+		length : INTEGER
+	do
+		-- To handle the resulting STRING
+		a_ptr_to_decrypted_data := $result_ptr
+		a_ptr_to_ptr := $a_ptr_to_decrypted_data
+
+
+			temp := string_to_decrypt.to_c
+			a_ptr_to_string_to_decrrypt := $temp
+			length := c_RSA_public_decrypt (string_to_decrypt.count, a_ptr_to_string_to_decrrypt, a_ptr_to_ptr, this_rsa_ptr  )
 			create Result.make_empty
 			Result.from_c_substring (a_ptr_to_decrypted_data, 1, length)
 	end
@@ -188,6 +227,36 @@ feature {NONE}
 			return (EIF_INTEGER) result;
 			}"
 		end
+		
+		
+		-- TODO Regarding memory managemen of data created I have some questions marks
+		-- 1. Does the from_c_substring function de-allocate the memory when the STRING is garbage collectged
+		-- 2. How should I handle that when I allocate memory in the C-code I mostly allocate more memory than needed
+		--    due to the RSA_size does not know, I assume, the length of the data that is needed. I think I only get a 
+		--    maximum size to avoid memory corruption.
+		-- 3. When using the private_decrypt/public_encrypt I need to check that I do correct allocation. I think I use the 
+		--    wrong lenght in one or both cases (since I only copy&pasted the vice verca encryption/decryption.
+	c_RSA_private_encrypt (length_of_data_to_encrypt: INTEGER; a_char_ptr_to_data :POINTER; a_ptr_to_encrypted_data, a_rsa_ptr : POINTER ): INTEGER
+			-- External call
+		external
+			"C inline use <openssl/rsa.h>"
+		alias
+			"{
+			unsigned char * to;
+			unsigned char * decrypted;
+			int result;
+			int result_decryption;
+			char **pptr;
+
+			to = malloc (RSA_size($a_rsa_ptr)+1);
+			result = RSA_private_encrypt($length_of_data_to_encrypt, $a_char_ptr_to_data, to , $a_rsa_ptr, RSA_PKCS1_PADDING );
+						
+			pptr=(char **)$a_ptr_to_encrypted_data;
+			*pptr=(char *)to;
+
+			return (EIF_INTEGER) result;
+			}"
+		end
 
 	c_RSA_private_decrypt (length_of_data_to_decrypt: INTEGER; a_char_ptr_to_data :POINTER;a_ptr_to_decrypted_data: POINTER; a_rsa_ptr : POINTER ): INTEGER
 			-- External call
@@ -218,6 +287,26 @@ feature {NONE}
 //			printf("\n");
 //			printf (to);
 //			printf("\n");
+			return (EIF_INTEGER) result;
+			}"
+		end
+	c_RSA_public_decrypt (length_of_data_to_decrypt: INTEGER; a_char_ptr_to_data :POINTER;a_ptr_to_decrypted_data: POINTER; a_rsa_ptr : POINTER ): INTEGER
+			-- External call
+		external
+			"C inline use <openssl/rsa.h>"
+		alias
+			"{
+			unsigned char * to;
+			int result;
+			unsigned char * decrypted;
+			char **pptr;
+
+			to = malloc (RSA_size($a_rsa_ptr)+1);
+			result = RSA_public_decrypt($length_of_data_to_decrypt, $a_char_ptr_to_data, to, $a_rsa_ptr, RSA_PKCS1_PADDING );
+
+			pptr=(char **)$a_ptr_to_decrypted_data;
+			*pptr=(char *)to;
+
 			return (EIF_INTEGER) result;
 			}"
 		end

@@ -39,16 +39,9 @@ feature -- Test routines
 			r : RSA
 			result_from_rsa_feature: INTEGER_32
 			test: INTEGER_64
-			a_ptr_to_ptr, a_buf_mem_ptr: POINTER
-			length_of_buffer: INTEGER_32
 			s: STRING_8
 			s_enc : STRING
 			s_dec: STRING_8
-			a_decrypted_c_string: POINTER
-			a_ptr_to_string_to_encrypt: POINTER
-			a_ptr_to_string_to_decrrypt: POINTER
-			temp: ANY
-			RSA_public_key_as_string : STRING
 
 		do
 			create r.make
@@ -114,6 +107,29 @@ feature -- Test routines
 			a_decrypted_string := r.private_decrypt ( encrypted_s)
 			assert ("String was encrypted and decrypted", a_decrypted_string.is_equal ("STRING TO ENCRYPT"))
 	end
+
+		test_of_private_encrypting_and_then_public_decrypting
+		-- Check that it is possible to encrypt with private key and then decrypt with public key and get the same string back.
+		local
+			r : RSA
+			result_from_rsa_feature: INTEGER_32
+			s: STRING_8
+			encrypted_s : STRING
+			a_decrypted_string: STRING
+
+		do
+			create r.make
+			result_from_rsa_feature := r.generate_public_and_private_keys (1024)
+
+			s := "STRING TO ENCRYPT"
+
+			encrypted_s := r.private_encrypt (s)
+			assert ("String was encrypted and decrypted",not  encrypted_s.is_equal ("STRING TO ENCRYPT"))
+
+			a_decrypted_string := r.public_decrypt ( encrypted_s)
+			assert ("String was encrypted and decrypted", a_decrypted_string.is_equal ("STRING TO ENCRYPT"))
+	end
+
 
 	test_key_valid
 	local
